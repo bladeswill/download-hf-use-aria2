@@ -6,7 +6,8 @@ app = new Vue({
         Aria2_url: 'ws://127.0.0.1:6800/jsonrpc',
         Aria2_token: '',
         HF地址: "https://hf-mirror.com",
-        项目ID: "TheBloke/SUS-Chat-34B-AWQ",
+        项目ID: "CausalLM/34b-beta",
+		下载类型: "models",
         线程数: 8,
         files: [],
         b_Aria2_已连接: false,
@@ -17,19 +18,45 @@ app = new Vue({
 })
 
 // child_process = require("child_process")
+// 获取文件列表
 get_files = async () => {
-    f = await fetch(app.HF地址 + "/api/models/" + app.项目ID)
-    j = await f.json()
-    return j.siblings
+    // 根据app.下载类型，选择获取模型列表或数据集列表
+	
+    //"https://hf-mirror.com/api/models/TheBloke/SUS-Chat-34B-AWQ/"
+	//"https://hf-mirror.com/api/datasets/abacusai/SystemChat"
+    let url = "";
+    if (app.下载类型 === "models") {
+        url = app.HF地址 + "/api/models/" + app.项目ID;
+    } else if (app.下载类型 === "datasets") {
+        url = app.HF地址 + "/api/datasets/" + app.项目ID;
+    }
+
+    // 获取文件列表
+    let f = await fetch(url);
+    let j = await f.json();
+
+    // 返回文件列表
+    return j.siblings;
 }
+
+// 获取下载链接
+get_url = (file_name) => {
+	if (app.下载类型 === "models") {
+        return `${app.HF地址}/${app.项目ID}/resolve/main/${encodeURI(file_name.split('/')[1])}`;
+    } else if (app.下载类型 === "datasets") {
+        return `${app.HF地址}/datasets/${app.项目ID}/resolve/main/${encodeURI(file_name.split('/')[1])}`;
+    }
+	
+    //return `${app.HF地址}/${app.项目ID}/resolve/main/${encodeURI(file_name.split('/')[1])}`
+	// "https://hf-mirror.com/abacusai/SystemChat/resolve/main/README.md"
+	//https://hf-mirror.com/datasets/abacusai/SystemChat/resolve/main/README.md?download=true
+}
+
 del_file = (name) => {
     let file_index = app.files.findIndex((a) => a.name == name);;
     app.files.splice(file_index, 1);
 };
-get_url = (file_name) => {
-    return `${app.HF地址}/${app.项目ID}/resolve/main/${encodeURI(file_name.split('/')[1])}`
-    //"https://hf-mirror.com/api/models/TheBloke/SUS-Chat-34B-AWQ/"
-}
+
 down_file = (url, file_dir, file) => {
     // child_process.execFile(process.execPath.replace(/wd-down.+/, "wd-down\\") + "aria2c.exe",
     //     ['-x', app.线程数, '-k', '1M', '-c', url, "-d", file_dir, "-o", file.name],
@@ -69,17 +96,27 @@ down_file = (url, file_dir, file) => {
     json.params.push(options);
     ws.send(JSON.stringify(json));
 }
+
+切换下载类型 = async () => {
+  app.下载类型 = app.下载类型 === 'datasets' ? 'models' : 'datasets';
+  app.loading = false
+}
+
+
+
 获取文件列表 = async () => {
     app.loading = true
-    app.files = (await get_files()).map(i => ({ name: app.项目ID.split('/')[1] + '/' + i.rfilename, state: '未下载', id: '' }))
+    app.files = (await get_files()).map(i => ({ name: app.项目ID.split('/')[1] + '/' + i.rfilename,
+        Lnames: app.项目ID + '/' + i.rfilename, // 添加新属性 Lnames
+        state: '未下载',
+        id: '' })) //获取网页表格里的文件名
     app.loading = false
 }
-下载 = async () => {
+全部下载 = async () => {
     app.downloading = true
     app.files.forEach(element => {
         if (element.state == '未下载')
-            down_file(get_url(element.name), app.项目ID.split('/')[1], element)
-
+            down_file(get_url(element.name), app.项目ID, element) // 全部下载：示例解释：app.项目ID.split('/')[1]是用/划分数组，提取第2个元素
     });
 }
 连接 = async (show = true) => {
